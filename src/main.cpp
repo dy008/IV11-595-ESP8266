@@ -23,9 +23,10 @@ uint8_t DispMode = 0;
 //#include <WiFi.h>
 #include "ESP8266WiFi.h"
 #include <WiFiUdp.h>
-// WiFi details
-const char *ssid     = "kmhls"; //"UHOT";"邓月的 iPhone"; //
-const char *password = "kmhls8186392";  //"WX888888";"qwertyuiop"; //
+//needed for library
+#include <DNSServer.h>
+#include <ESP8266WebServer.h>
+#include <WiFiManager.h>          //https://github.com/tzapu/WiFiManager
 
 // NTP
 WiFiUDP ntpUDP;
@@ -45,26 +46,6 @@ RtcDS3231<TwoWire> Rtc(Wire);
 
 RtcDateTime currTime;
 
-bool WiFi_Setup(){
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
-  for (size_t i = 0; i < 10; i++) {
-    delay(500);
-    Serial.print(".");
-    if (WiFi.status() == WL_CONNECTED) {
-      Serial.println("WiFi connected!");
-      return(true);
-    }
-  }
-  Serial.println(".");
-  Serial.println("WiFi Can't connected!");
-  Serial.println("WiFi will be close");
-  WiFi.setSleepMode(WIFI_LIGHT_SLEEP);  // Allow light sleep during idle times
-  //WiFi.setSleepMode(WIFI_MODEM_SLEEP);  // Disable sleep (Esp8288/Arduino core and sdk default)
-  return(false);
-}
-
 // ************************************
 // ** RTC Setup
 // ************************************
@@ -73,6 +54,7 @@ void RTC_Update(){
   timeClient.update();
   unsigned long epochTime = timeClient.getEpochTime()-946684800UL;
   Rtc.SetDateTime(epochTime);
+  Serial.println("RTC was Update DateTime from NTP...");
 }
 
 void RTC_Valid(){
@@ -127,24 +109,32 @@ void setup() {
   sr.setAll(&BCD_HMS[0]);
 
   printDateTime(currTime);
-  if (WiFi_Setup()) {
+
+  //WiFiManager
+  //Local intialization. Once its business is done, there is no need to keep it around
+  WiFiManager wifiManager;
+  //sets timeout until configuration portal gets turned off
+  //useful to make it all retry or go to sleep
+  //in seconds
+  wifiManager.setTimeout(180);
+  //fetches ssid and pass and tries to connect
+  //if it does not connect it starts an access point with the specified name
+  //here  "AutoConnectAP"
+  //and goes into a blocking loop awaiting configuration
+  if(wifiManager.autoConnect("dy008IV11CLOCK")) {
+    //if you get here you have connected to the WiFi
+    Serial.println("connected...yeey :)");
     timeClient.begin();
     delay(3000);
     timeClient.update();
     Serial.println(timeClient.getFormattedTime());
     RTC_Update();
+  } else{
+    Serial.println("failed to connect and hit timeout");
   }
-  WiFi.setSleepMode(WIFI_LIGHT_SLEEP);  // Allow light sleep during idle times
-  WiFi.disconnect(true);
-  Serial.println("WiFi will be close");
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-
-  //if (WiFi.status() == WL_CONNECTED) {    // if wifi is connected do RTC check
-  //  RTC_Valid();
-  //}
 
   currTime = Rtc.GetDateTime();
   // 下面将当前时间转换：BIN->7段显示格式数组准备传输
@@ -192,6 +182,8 @@ void loop() {
     default: sr.setAll(&BCD_HMS[0]);
       DispMode = 0;
   }
+  // Reset WDT in case we blocked without yield'ing for a while, but shouldn't be necessary
+  ESP.wdtFeed();
   delay(1000);
   // printDateTime(currTime);
 
