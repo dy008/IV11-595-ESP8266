@@ -51,10 +51,15 @@ RtcDateTime currTime;
 // ************************************
 void RTC_Update(){
   // Do udp NTP lookup, epoch time is unix time - subtract the 30 extra yrs (946684800UL) library expects 2000
-  timeClient.update();
-  unsigned long epochTime = timeClient.getEpochTime()-946684800UL;
-  Rtc.SetDateTime(epochTime);
-  Serial.println("RTC was Update DateTime from NTP...");
+  if (timeClient.update()) {
+    unsigned long epochTime = timeClient.getEpochTime()-946684800UL;
+    Rtc.SetDateTime(epochTime);
+    Serial.println("RTC was Update DateTime from NTP...");
+    Serial.println(timeClient.getFormattedTime());
+  }else {
+    Serial.println("RTC was Update failed...");
+  }
+
 }
 
 void RTC_Valid(){
@@ -89,7 +94,7 @@ void printDateTime(const RtcDateTime& dt)
 void setup() {
   // setting all pins at the same time to either HIGH or LOW
   sr.setAllHigh(); // set all pins HIGH
-  delay(1000);
+  delay(1500);
 
   Serial.begin(115200);
   Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeClock);
@@ -103,11 +108,10 @@ void setup() {
   BCD_HMS[3] = m_ssdArray[currTime.Minute() %10];
   BCD_HMS[4] = m_ssdArray[currTime.Second() /10];
   BCD_HMS[5] = m_ssdArray[currTime.Second() %10];
-
-
-
   sr.setAll(&BCD_HMS[0]);
 
+  Serial.println("");
+  Serial.println("My DS3231 Memory DateTime is : ");
   printDateTime(currTime);
 
   //WiFiManager
@@ -126,9 +130,8 @@ void setup() {
     Serial.println("connected...yeey :)");
     timeClient.begin();
     delay(3000);
-    timeClient.update();
-    Serial.println(timeClient.getFormattedTime());
     RTC_Update();
+    timeClient.end();
   } else{
     Serial.println("failed to connect and hit timeout");
   }
