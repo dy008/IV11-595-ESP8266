@@ -10,7 +10,7 @@
 // create a global shift register object
 // parameters: (number of shift registers, data pin, clock pin, latch pin)
 ShiftRegister74HC595 sr (4, 13, 12, 15);
-
+#define  SecondContrl  14   // 秒显控制脚 HiGH = 显示
 //uint8_t m_ssdArray[16] = {252, 96, 218, 242, 102, 182, 190, 224, 254, 246, 238, 62, 156, 122, 158, 142};
 uint8_t m_ssdArray[16] = {B10110111, B10100000, B00111011, B10111001, B10101100, B10011101, B10011111, B10110000, B10111111, B10111101, 238, 62, 156, 122, 158, 142};
 
@@ -92,6 +92,9 @@ void printDateTime(const RtcDateTime& dt)
 }
 
 void setup() {
+  pinMode(SecondContrl,OUTPUT_OPEN_DRAIN);
+  digitalWrite(SecondContrl,HIGH);  // 显示秒点
+
   // setting all pins at the same time to either HIGH or LOW
   sr.setAllHigh(); // set all pins HIGH
   delay(1500);
@@ -169,15 +172,17 @@ void loop() {
       sr.setAll(&BCD_HMS[0]);
       DispMode++;
       break;
-    case 25:;case 26:;case 27:;case 28:
+    case 25:;case 26:;case 27:
       sr.setAll(&BCD_S[0]);
       DispMode++;
       break;
-    case 29:
+    case 28:
+      digitalWrite(SecondContrl,HIGH);  // 显示秒点
       sr.setAll(&BCD_YMD[0]);
       DispMode++;
       break;
-    case 30:
+    case 29:
+      digitalWrite(SecondContrl,HIGH);  // 显示秒点
       sr.setAll(&BCD_YMD[4]);
       DispMode++;
       break;
@@ -187,12 +192,9 @@ void loop() {
   }
   // Reset WDT in case we blocked without yield'ing for a while, but shouldn't be necessary
   ESP.wdtFeed();
-  delay(1000);
+  delay(390);
+  digitalWrite(SecondContrl,HIGH);  // 显示秒点
+  delay(600);
+  digitalWrite(SecondContrl,LOW);  // 关闭秒点
   // printDateTime(currTime);
-
-	// RtcTemperature temp = Rtc.GetTemperature();
-	// temp.Print(Serial);
-	// you may also get the temperature as a float and print it
-  // Serial.print(temp.AsFloatDegC());
-  // Serial.println("C");
 }
